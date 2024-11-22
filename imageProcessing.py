@@ -34,7 +34,7 @@ def load_images_from_folder(relative_path, max_images=100):
 
 
 """
-Pad image to the provided target size. The input image should be one-channel
+Pad image to the provided target size. The input image should be one-channel.
 """
 def pad_image(image, target_size=(1000, 2000)):
     """
@@ -45,11 +45,12 @@ def pad_image(image, target_size=(1000, 2000)):
         target_size (tuple): The desired size (height, width), e.g., (1000, 2000).
 
     Returns:
-        numpy array: The padded image of size (1000, 2000).
+        numpy array: The padded image of size (1000, 2000), 
+        transform function: how coordinates x, y are affected.
     """
     if image.shape[0] > target_size[0] or image.shape[1] > target_size[1]:
         print("Unpaddable image")
-        return None
+        return np.zeros(target_size), lambda x: x
     
     original_height, original_width = image.shape
     target_height, target_width = target_size
@@ -67,8 +68,12 @@ def pad_image(image, target_size=(1000, 2000)):
         mode='constant',
         constant_values=0
     )
+
+    # We want to keep track of how coordinates of the original image are modified, because we are using the coords of the crucial points.
+    def pad_transform(x, y):
+        return x + pad_width_left, y + pad_height_top
     
-    return padded_image
+    return padded_image, pad_transform
 
 
 """
@@ -114,10 +119,12 @@ def load_greyscale_images_from_folder(relative_path, max_images = 10):
 
 
 """
-Downsample one channel image by provided factor (factor**2 actually since 2d)
+Downsample one channel image by provided factor (factor**2 actually since 2d).
+Also return how coords are affected
 """
 def downsample(image, factor):
-    return image[:: factor, :: factor]
+    transform = lambda x, y: (int(x/10), int(y/10))
+    return image[:: factor, :: factor], transform
 
 
 """
@@ -134,6 +141,25 @@ Remove thin segments (temporary function: should be improved and 130 and 150 sho
 """
 def remove_thin_segments(image, blur_factor):
     blurred = blur(image, blur_factor)
-    return np.where((image > 130) & (blurred > 150), 1, 0).astype(np.uint8)
+    return np.where((blurred > 30), image, 0).astype(np.uint8)
+
+
+def simplify_image(original_image):
+    #black_and_white = get_black_and_white(original_image)
+    grey_scale = to_grayscale(original_image)
+    padded, pad_transform = pad_image(grey_scale) # Keep track of fun pad_transform because pad_images affects coordinates.
+    # If the image is too big to be padded to size (1000, 2000), pad_image returns an array of 0 by default
+    if (padded == 0).all():
+        return padded, lambda x: x
+    downsampled, ds_transform = downsample(padded, 10)
+    #without_thin_segments = remove_thin_segments(downsampled, 15)
+
+    def composed_transform(x, y):
+        x2, y2 = pad_transform(x, y)
+        return ds_transform(x2, y2)
+    return downsampled, composed_transform
+
+
+    
 
 

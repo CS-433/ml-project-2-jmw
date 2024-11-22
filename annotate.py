@@ -48,8 +48,9 @@ def user_annotate(image):
     plt.show()
 
     first_point, second_point = points[0, :], points[1, :]
+    x1, y1, x2, y2 = points[0, 0], points[0, 1], points[1, 0], points[1, 1]
     
-    return first_point, second_point
+    return x1, y1, x2, y2
 
 
 """
@@ -64,11 +65,19 @@ def write_to_csv(data, output_file):
         writer = csv.writer(file)
         # Write header
         if not file_exists:
-            writer.writerow(["Image Name", "Point 1 (x, y)", "Point 2 (x, y)"])
+            writer.writerow(["Image Name", "x1", "y1", "x2", "y2"])
         
         # Write data rows
         for row in data:
-            writer.writerow(row)
+            # Convert numpy arrays in the row to lists
+            processed_row = [
+                row[0],  # Keep the string as is
+                row[1],  
+                row[2], 
+                row[3], 
+                row[4]  
+            ]
+            writer.writerow(processed_row)
 
 
 
@@ -95,9 +104,9 @@ if __name__ == "__main__":
 
         image = originals[i]
         name = image_names[i]
-        first_point, second_point = user_annotate(image)
+        x1, y1, x2, y2 = user_annotate(image)
 
-        collected_data.append([name, first_point, second_point])
+        collected_data.append([name, x1, y1, x2, y2])
     
     
 
