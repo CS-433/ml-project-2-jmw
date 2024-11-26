@@ -41,13 +41,15 @@ def user_annotate(image):
     plt.axis('on')
 
     # Use ginput to select points manually
-    points = plt.ginput(n=2, timeout=0)
+    points = plt.ginput(n=2, timeout=-1)
+
+    # Automatically close the window after getting the points
+    plt.close()
 
     # Convert points to integer coordinates
     points = np.array(points, dtype=int)
     plt.show()
 
-    first_point, second_point = points[0, :], points[1, :]
     x1, y1, x2, y2 = points[0, 0], points[0, 1], points[1, 0], points[1, 1]
     
     return x1, y1, x2, y2
@@ -85,7 +87,7 @@ if __name__ == "__main__":
 
     rel_path_source = input("Type the relative path of the folder containing the images you want to anotate: \n")
     rel_path_dest = input("Type the relative path of the destination file for the collected data: \n")
-    originals, image_names = ip.load_images_from_folder(rel_path_source, max_images=10)
+    originals, image_names = ip.load_images_from_folder(rel_path_source, max_images=100)
 
     """
     Could be a problem in the training data if image names aren't unique.
@@ -95,12 +97,13 @@ if __name__ == "__main__":
     
     collected_data = []
     for i in range(len(originals)):
-        # Allow the user to leave every 10 steps. (The last bunch of progress will be lost if he just closes the program.)
-        if (i+1) % 10 == 0:
+        # Regularly save the progress
+        if (i+1) % 5 == 0:
             write_to_csv(collected_data, rel_path_dest)
             collected_data = []
-            if input("Do you wish to continue ? Press 'y' to continue, 'n' to stop.") == "n":
-                break
+            if (i+1) % 20 == 0:
+                if input("Do you wish to continue ? Input 'y' to continue, 'n' to stop.") == "n":
+                    break
 
         image = originals[i]
         name = image_names[i]
