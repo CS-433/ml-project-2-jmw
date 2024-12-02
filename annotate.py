@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     rel_path_source = input("Type the relative path of the folder containing the images you want to anotate: \n")
     rel_path_dest = input("Type the relative path of the destination file for the collected data: \n")
-    originals, image_names = ip.load_images_from_folder(rel_path_source, max_images=198)
+    originals, image_names = ip.load_images_from_folder(rel_path_source, max_images=100)
 
     """
     Could be a problem in the training data if image names aren't unique.
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         if (i+1) % 5 == 0:
             write_to_csv(collected_data, rel_path_dest)
             collected_data = []
-            if (i+1) % 100 == 0:
+            if (i+1) % 20  == 0:
                 if input("Do you wish to continue ? Input 'y' to continue, 'n' to stop.") == "n":
                     break
 
