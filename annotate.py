@@ -7,6 +7,8 @@ import random
 import imageProcessing as ip
 import csv
 
+import pandas as pd
+
 
 """
 This is a simple script that allows a user to provide data by clicking on ant images.
@@ -81,7 +83,9 @@ def write_to_csv(data, output_file):
             ]
             writer.writerow(processed_row)
 
-
+def merge_csvs(*file_paths, final_path='.data.csv'):
+    df = pd.concat([ pd.read_csv(path) for path in file_paths ])
+    df.groupby(['Image Name']).mean().to_csv(final_path)
 
 if __name__ == "__main__":
 
@@ -101,7 +105,7 @@ if __name__ == "__main__":
         if (i+1) % 5 == 0:
             write_to_csv(collected_data, rel_path_dest)
             collected_data = []
-            if (i+1) % 20 == 0:
+            if (i+1) % 20  == 0:
                 if input("Do you wish to continue ? Input 'y' to continue, 'n' to stop.") == "n":
                     break
 
