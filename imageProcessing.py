@@ -6,10 +6,10 @@ import scipy.signal as signal
 import random
 
 
-
+### Old functions
 """
 Load a random sample (max_images) from an image folder
-"""
+
 def load_images_from_folder(relative_path, max_images=100):
     images = []
     file_names = []
@@ -33,11 +33,11 @@ def load_images_from_folder(relative_path, max_images=100):
     return images, file_names
 
 
-"""
+
 Pad image to the provided target size. The input image should be one-channel.
-"""
+
 def pad_image(image, target_size=(1000, 2000)):
-    """
+
     Pad a 2D grayscale image with zeros to the target size.
 
     Parameters:
@@ -47,7 +47,7 @@ def pad_image(image, target_size=(1000, 2000)):
     Returns:
         numpy array: The padded image of size (1000, 2000), 
         transform function: how coordinates x, y are affected.
-    """
+
     if image.shape[0] > target_size[0] or image.shape[1] > target_size[1]:
         print("Unpaddable image")
         return np.zeros(target_size), lambda x: x
@@ -76,18 +76,18 @@ def pad_image(image, target_size=(1000, 2000)):
     return padded_image, pad_transform
 
 
-"""
+
 Works for the without background images that have 4 channels
 (because the last channel indicates the transparancy amound that is
 de-activated (0) for the background and activated (1 or 255) for the ant)
-"""
+
 def get_black_and_white(image):
     return np.copy(image[:, :, 3])
 
 
-"""
+
 Works for the without backround images where the 4th channel is tha alpha (transparancy) channel
-"""
+
 def to_grayscale(image):
     r, g, b, a = image[:, :, 0], image[:, :, 1], image[:, :, 2], image[:, :, 3]
 
@@ -103,7 +103,7 @@ def to_grayscale(image):
     return grayscale
 
 
-""" Old function
+
 def load_greyscale_images_from_folder(relative_path, max_images = 10):
     images = []
     for filename in os.listdir(relative_path):
@@ -115,30 +115,30 @@ def load_greyscale_images_from_folder(relative_path, max_images = 10):
             if len(images) > max_images:
                 return images
     return images
-"""
 
 
-"""
+
+
 Downsample one channel image by provided factor (factor**2 actually since 2d).
 Also return how coords are affected
-"""
+
 def downsample(image, factor):
     transform = lambda x, y: (int(x/10), int(y/10))
     return image[:: factor, :: factor], transform
 
 
-"""
+
 Blur one channel image with avg conv filter of size blur_factor*blur_factor
-"""
+
 def blur(image, blur_factor):
     filter = np.ones((blur_factor, blur_factor))/(blur_factor**2)
     res = signal.convolve2d(image, filter, mode='same', boundary='fill', fillvalue=0)
     return res
 
 
-"""
+
 Remove thin segments (temporary function: should be improved and 130 and 150 should be parameters)
-"""
+
 def remove_thin_segments(image, blur_factor):
     blurred = blur(image, blur_factor)
     return np.where((blurred > 30), image, 0).astype(np.uint8)
@@ -161,8 +161,9 @@ def simplify_image(original_image):
 
 
 
-def create_channel(point1, point2, shape=(80, 160), radius=2):
-    """
+
+def create_channel_old(point1, point2, shape=(80, 160), radius=2):
+
     Creates an image channel of the given shape where circles of a given radius
     around point1 and point2 are set to 255, and the rest are zeros.
 
@@ -174,7 +175,7 @@ def create_channel(point1, point2, shape=(80, 160), radius=2):
 
     Returns:
         numpy.ndarray: A 2D array representing the channel.
-    """
+
     # Create a blank channel
     channel = np.zeros(shape, dtype=np.uint8)
 
@@ -191,6 +192,26 @@ def create_channel(point1, point2, shape=(80, 160), radius=2):
     draw_circle(point2, radius)
 
     return channel
+
+
+def add_point_channel_old(img, x1, y1, x2, y2):
+    # Create a channel to visualise the points
+    point_channel = create_channel_old((x1, y1), (x2, y2))
+
+    # Turn one-channel simplified image to 3 channels
+    rgb = np.stack([img] * 3, axis=-1)
+        
+    # Integrate our channel that represents the points into the image
+    red_channel = rgb[:, :, 0]
+    red_channel = np.maximum(red_channel, point_channel)
+    rgb[:, :, 0] = red_channel
+
+    return rgb
+
+
+"""
+
+
 
 
 def create_channel(points, shape, radius=2):
@@ -222,22 +243,6 @@ def create_channel(points, shape, radius=2):
         draw_circle(point, radius)
 
     return channel
-
-
-
-def add_point_channel(img, x1, y1, x2, y2):
-    # Create a channel to visualise the points
-    point_channel = create_channel((x1, y1), (x2, y2))
-
-    # Turn one-channel simplified image to 3 channels
-    rgb = np.stack([img] * 3, axis=-1)
-        
-    # Integrate our channel that represents the points into the image
-    red_channel = rgb[:, :, 0]
-    red_channel = np.maximum(red_channel, point_channel)
-    rgb[:, :, 0] = red_channel
-
-    return rgb
 
 
 """

@@ -9,31 +9,14 @@ import os
 import random
 
 from Config import Config
-
-
-# Transform an image and keypoints = [(x1, y1), (x2, y2)] into x and y for the model. 
-# The image should already have the right shape for the model.
-def to_xy(image, key_points = []):
-    shape = Config.input_image_shape
-    if image.shape != shape:
-        raise ValueError("Image shape doesn't match config shape !")
-    image = image/np.max(image) #normalize
-    if len(key_points) == 2:
-        x1, y1, x2, y2 = key_points[0][0], key_points[0][1], key_points[1][0], key_points[1][1]
-        x1, x2 = x1/shape[1], x2/shape[1]
-        y1, y2 = y1/shape[0], y2/shape[0]
-
-        return torch.from_numpy(image).float(), torch.asarray([x1, x2, y1, y2])
-
-    return torch.from_numpy(image).float(), []
+import model
 
 
 
-
-class KeypointDetectionModel(nn.Module):
+class ConfidenceModel(nn.Module):
     def __init__(self):
         input_shape = Config.input_image_shape
-        super(KeypointDetectionModel, self).__init__()
+        super(ConfidenceModel, self).__init__()
         
         # Convolutional layers
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)  
@@ -48,7 +31,7 @@ class KeypointDetectionModel(nn.Module):
         # Fully connected layers
         self.fc1 = nn.Linear(64 * int(input_shape[0]/4) * int(input_shape[1]/4), 512)  # Input: Flattened pooled output
         self.fc2 = nn.Linear(512, 128)
-        self.fc3 = nn.Linear(128, 4)  # Output: 4 coordinates [x1, y1, x2, y2]
+        self.fc3 = nn.Linear(128, 1)  # Output: 2 estimations of the error (one for each keypoint)
     
 
     def forward(self, x):
@@ -70,13 +53,17 @@ class KeypointDetectionModel(nn.Module):
         x = F.relu(self.fc1(x))
         #print(x.shape)
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)  # Final output: (batch_size, 4)
+        x = self.fc3(x)  # Final output: (batch_size, 1)
         #print(x.shape)
+        # Sigmoid or id ?
+        #x = F.sigmoid(self.fc3(x))  # Final output: (batch_size, 4)
         
         return x
 
 
-def get_batch(data, batchsize = 25, augment_images = True):
+def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "mps"):
+
+    kpd_model.eval()
 
     features, targets = [], []
     dataset = []
@@ -105,13 +92,25 @@ def get_batch(data, batchsize = 25, augment_images = True):
         img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)], augment_images=augment_images)
 
         if len(keypoints) == 2:
-            x, y = to_xy(img, keypoints)
+            x, y = model.to_xy(img, keypoints)
             features.append(x.unsqueeze(0))
             targets.append(y)
             dataset.append((x, y))
             names.append(name)
     
-    features_tensor, targets_tensor = torch.stack(features), torch.stack(targets)
-    return features_tensor, targets_tensor, names
+    features_tensor, targets_tensor = torch.stack(features).to(device), torch.stack(targets).to(device)
+    kpd_model.eval()
+    kpd_pred = kpd_model(features_tensor)
+
+    # Compute the element-wise difference
+    difference = kpd_pred - targets_tensor
+
+    # Square the differences
+    squared_difference = difference ** 2
+
+    # Compute the mean along the last dimension (the vector components)
+    mse_per_vector = torch.mean(squared_difference, dim=1, keepdim=True)
+
+    return features_tensor, mse_per_vector, names
 
 
