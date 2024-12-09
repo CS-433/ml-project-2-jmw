@@ -46,8 +46,9 @@ class KeypointDetectionModel(nn.Module):
         self.flatten = torch.nn.Flatten()
 
         # Fully connected layers
-        self.fc1 = nn.Linear(64 * int(input_shape[0]/4) * int(input_shape[1]/4), 128)  # Input: Flattened pooled output
-        self.fc2 = nn.Linear(128, 4)  # Output: 4 coordinates [x1, y1, x2, y2]
+        self.fc1 = nn.Linear(64 * int(input_shape[0]/4) * int(input_shape[1]/4), 512)  # Input: Flattened pooled output
+        self.fc2 = nn.Linear(512, 128)
+        self.fc3 = nn.Linear(128, 4)  # Output: 4 coordinates [x1, y1, x2, y2]
     
 
     def forward(self, x):
@@ -68,13 +69,14 @@ class KeypointDetectionModel(nn.Module):
         # Fully connected layers
         x = F.relu(self.fc1(x))
         #print(x.shape)
-        x = self.fc2(x)  # Final output: (batch_size, 4)
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)  # Final output: (batch_size, 4)
         #print(x.shape)
         
         return x
 
 
-def get_batch(data, batchsize = 25):
+def get_batch(data, batchsize = 25, augment_images = True):
 
     features, targets = [], []
     dataset = []
@@ -100,7 +102,7 @@ def get_batch(data, batchsize = 25):
         x2, y2 = image_data["x2"], image_data["y2"]
         #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)])
+        img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)], augment_images=augment_images)
 
         if len(keypoints) == 2:
             x, y = to_xy(img, keypoints)
