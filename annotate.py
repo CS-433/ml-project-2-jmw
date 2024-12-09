@@ -38,6 +38,10 @@ Display image and allow user to annotate coordinates.
 """
 def user_annotate(image):
     # Display the image using Matplotlib
+    fig = plt.figure(figsize=(16, 9))  # Adjust to your screen's aspect ratio or resolution
+    manager = plt.get_current_fig_manager()
+    manager.full_screen_toggle()  # Switch to full-screen mode
+    
     plt.imshow(image, cmap='gray')
     plt.title("Click to annotate points")
     plt.axis('on')
@@ -91,7 +95,7 @@ if __name__ == "__main__":
 
     rel_path_source = input("Type the relative path of the folder containing the images you want to anotate: \n")
     rel_path_dest = input("Type the relative path of the destination file for the collected data: \n")
-    originals, image_names = ip.load_images_from_folder(rel_path_source, max_images=100)
+    originals, image_names = ip.load_images_from_folder(rel_path_source, max_images=400)
 
     """
     Could be a problem in the training data if image names aren't unique.
@@ -105,7 +109,7 @@ if __name__ == "__main__":
         if (i+1) % 5 == 0:
             write_to_csv(collected_data, rel_path_dest)
             collected_data = []
-            if (i+1) % 20  == 0:
+            if (i+1) % 50  == 0:
                 if input("Do you wish to continue ? Input 'y' to continue, 'n' to stop.") == "n":
                     break
 
