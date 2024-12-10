@@ -9,7 +9,7 @@ import os
 import random
 
 from Config import Config
-import model
+import KeypointDetectionModel
 
 
 
@@ -92,7 +92,7 @@ def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "
         img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)], augment_images=augment_images)
 
         if len(keypoints) == 2:
-            x, y = model.to_xy(img, keypoints)
+            x, y = KeypointDetectionModel.to_xy(img, keypoints)
             features.append(x.unsqueeze(0))
             targets.append(y)
             dataset.append((x, y))
@@ -112,5 +112,48 @@ def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "
     mse_per_vector = torch.mean(squared_difference, dim=1, keepdim=True)
 
     return features_tensor, mse_per_vector, names
+
+
+def train_conf_model(conf_model, kpd_model, train_data, test_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20):
+    best_test_loss = 10
+
+    criterion = nn.MSELoss()  # Loss for regression
+    optimizer = torch.optim.Adam(conf_model.parameters(), lr=initial_lr)
+    scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda epoch: lr_decay)
+
+    conf_model.train()
+    kpd_model.eval()
+
+    for epoch in range(epochs):
+        images, errors, names = get_batch(train_data, kpd_model, batchsize=batchsize, augment_images=augment_training_images, device = device)  
+        images = images.to(device)
+        errors = errors.to(device)
+
+        optimizer.zero_grad()
+        outputs = conf_model(images)  # Forward pass
+        loss = criterion(outputs, errors)  # Compute loss
+        loss.backward()  # Backpropagation
+        optimizer.step()  # Update weights
+        scheduler.step() # Update LR 
+
+        if not epoch % feedback_rate:
+            with torch.no_grad():
+                conf_model.eval()
+                images, errors, names = get_batch(test_data, kpd_model, batchsize = test_batchsize, augment_images = False, device = device)  
+                images = images.to(device)
+                errors = errors.to(device)
+
+                outputs = conf_model(images)  # Forward pass
+                test_loss = criterion(outputs, errors)  # Compute loss
+                current_lr = optimizer.param_groups[0]['lr']
+                print(f"Epoch {epoch}: test loss = {test_loss}, lr = {current_lr}")
+
+                conf_model.train()
+        
+            if test_loss < best_test_loss:
+                best_test_loss = test_loss
+                best_model_state = conf_model.state_dict()
+
+    conf_model.load_state_dict(best_model_state)
 
 
