@@ -9,7 +9,7 @@ import os
 import random
 
 from Config import Config
-import KeypointDetectionModel
+from Models import KeypointDetectionModel
 
 
 
