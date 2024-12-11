@@ -7,6 +7,7 @@ import csv
 import Augment
 import os
 import random
+from copy import deepcopy
 
 from Config import Config
 from Models import KeypointDetectionModel
@@ -61,6 +62,32 @@ class ConfidenceModel(nn.Module):
         return x
 
 
+def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max = None):
+    print("Building error data for confidence model")
+    with torch.no_grad():
+        kpd_model.eval()
+        images, keypoints, names = KeypointDetectionModel.get_full_unshuffled_batch(data, augment_images=False)
+        images = images.to(device)
+        keypoints = keypoints.to(device)
+        outputs = kpd_model(images)
+        errors = (keypoints - outputs)**2
+        mse_per_vector = torch.mean(errors, dim=1, keepdim=True)
+        if not(norm_min == 0 and norm_max == 1):
+            norm_min, norm_max = torch.min(mse_per_vector), torch.max(mse_per_vector)
+            print(norm_min, norm_max)
+        
+        mse_per_vector = (mse_per_vector - norm_min)/(norm_max - norm_min)
+    
+    #data_with_errors = deepcopy(data)
+
+    #for i in range(len(data)):
+    #    data_with_errors[i]["Error"] = mse_per_vector[i].item()
+
+    error_data = [{"Image Name": names[i], "Error": mse_per_vector[i].item()} for i in range(len(names))]
+    
+    return error_data, norm_min, norm_max
+
+
 def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "mps"):
 
     kpd_model.eval()
@@ -112,6 +139,31 @@ def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "
     mse_per_vector = torch.mean(squared_difference, dim=1, keepdim=True)
 
     return features_tensor, mse_per_vector, names
+
+
+def get_batch_fast(error_data, batchsize = 25, augment_images = False, device = "mps"):
+
+    features, errors = [], []
+    
+    # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
+    names = []
+    for error_dict in random.sample(error_data, batchsize):
+        name = error_dict["Image Name"]
+        error = error_dict["Error"]
+        img_path = os.path.join(Config.images_folder_path + "/", name)
+        # Replace the suffix with .png
+        base, _ = os.path.splitext(img_path)
+        img_path = f"{base}.png"
+        img, keypoints = Augment.prepare_for_model(img_path, [], augment_images=augment_images)
+
+        x, y = KeypointDetectionModel.to_xy(img, keypoints)
+        features.append(x.unsqueeze(0))
+        errors.append(torch.tensor([error]))
+        names.append(name)
+
+    features_tensor, error_tensor = torch.stack(features).to(device), torch.stack(errors).to(device)
+
+    return features_tensor, error_tensor, names
 
 
 """
@@ -184,4 +236,52 @@ def train_conf_model(conf_model, kpd_model, train_data, test_data, batchsize, te
 
     conf_model.load_state_dict(best_model_state)
 
+
+
+
+def train_conf_model_fast(conf_model, train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
+    best_test_loss = 10
+
+    criterion = nn.MSELoss()  # Loss for regression
+    optimizer = torch.optim.Adam(conf_model.parameters(), lr=initial_lr)
+    scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda epoch: lr_decay)
+
+    conf_model.train()
+
+    # Note: might not be great conceptually to use the test data to find the normalization.
+
+    for epoch in range(epochs):
+        images, errors, names = get_batch_fast(train_error_data, batchsize=batchsize, augment_images=augment_training_images, device = device) 
+        images = images.to(device)
+        errors = errors.to(device)
+
+        optimizer.zero_grad()
+        outputs = conf_model(images)  # Forward pass
+        loss = criterion(outputs, errors)  # Compute loss
+        loss.backward()  # Backpropagation
+        optimizer.step()  # Update weights
+        scheduler.step() # Update LR 
+
+        if not epoch % feedback_rate:
+            with torch.no_grad():
+                conf_model.eval()
+                images, errors, names = get_batch_fast(test_error_data, batchsize = test_batchsize, augment_images = False, device = device)  
+                images = images.to(device)
+                errors = errors.to(device)
+                #print(torch.max(errors))
+                #print(torch.min(errors))
+
+                #print(outputs, errors)
+                outputs = conf_model(images)  # Forward pass
+                test_loss = criterion(outputs, errors)  # Compute loss
+                current_lr = optimizer.param_groups[0]['lr']
+                print(f"Epoch {epoch}: test loss = {test_loss}, lr = {current_lr}")
+
+                conf_model.train()
+        
+            if test_loss < best_test_loss:
+                best_test_loss = test_loss
+                best_model_state = conf_model.state_dict()
+
+    conf_model.load_state_dict(best_model_state)
 

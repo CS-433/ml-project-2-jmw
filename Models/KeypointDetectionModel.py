@@ -118,6 +118,37 @@ def get_batch(data, batchsize = 25, augment_images = True):
     return features_tensor, targets_tensor, names
 
 
+def get_full_unshuffled_batch(data, augment_images = True):
+
+    features, targets = [], []
+    dataset = []
+    
+    # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
+    names = []
+    for image_data in data:
+        #print(image_data)
+        name = image_data["Image Name"]
+        img_path = os.path.join(Config.images_folder_path + "/", name)
+        # Replace the suffix with .png
+        base, _ = os.path.splitext(img_path)
+        img_path = f"{base}.png"
+        x1, y1 = image_data["x1"], image_data["y1"]
+        x2, y2 = image_data["x2"], image_data["y2"]
+        #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+        img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)], augment_images=augment_images)
+
+        if len(keypoints) == 2:
+            x, y = to_xy(img, keypoints)
+            features.append(x.unsqueeze(0))
+            targets.append(y)
+            dataset.append((x, y))
+            names.append(name)
+    
+    features_tensor, targets_tensor = torch.stack(features), torch.stack(targets)
+    return features_tensor, targets_tensor, names
+
+
 
 """
 Plot keypoint detection model prediction side by side with expected keypoints
