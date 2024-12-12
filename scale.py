@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import pytesseract
 import re
+import csv
 
 def load_image(image_path):
     """Load an image in grayscale and color formats."""
@@ -9,7 +10,7 @@ def load_image(image_path):
     color = cv2.imread(image_path, cv2.IMREAD_COLOR)
     return gray, color
 
-def find_horizontal_scale_bar_with_text(gray_image, mode="dark"):
+def find_horizontal_scale_bar_with_text_color(gray_image, mode="dark"):
     """
     Detect and measure a horizontal scale bar (black or white) with its text.
     """
@@ -66,40 +67,45 @@ def measure_distance_between_points(point1, point2, scale_bar_length_pixels, sca
     pixel_to_mm_ratio = scale_bar_mm / scale_bar_length_pixels
     return pixel_distance * pixel_to_mm_ratio
 
-if __name__ == "__main__":
-    image_path = "/Users/massirashidi/original/anic32-900103_p_1.jpg"
-    gray_image, color_image = load_image(image_path)
+def read_scale(text_region_above, text_region_below):
+    """Read the text above and below the scale bar."""
+    scale_text = pytesseract.image_to_string(text_region_above, config='--psm 6').strip()
+    scale_value = validate_text_and_extract_value(scale_text)
+    if scale_value is None:
+        scale_text = pytesseract.image_to_string(text_region_below, config='--psm 6').strip()
+        scale_value = validate_text_and_extract_value(scale_text)
+        if scale_value is None:
+            raise ValueError(f"Could not find a valid scale value. Detected text: {scale_text}")
+    return scale_value 
 
-    point1 = (100, 200)
-    point2 = (300, 400)
-
-    scale_bar_info, text_region_above, text_region_below = find_horizontal_scale_bar_with_text(gray_image, mode="dark")
+def find_horizontal_scale_bar_with_text(gray_image):
+    scale_bar_info, text_region_above, text_region_below = find_horizontal_scale_bar_with_text_color(gray_image, mode="dark")
     if not scale_bar_info:
-        scale_bar_info, text_region_above, text_region_below = find_horizontal_scale_bar_with_text(gray_image, mode="light")
+        scale_bar_info, text_region_above, text_region_below = find_horizontal_scale_bar_with_text_color(gray_image, mode="light")
+
+    return scale_bar_info, text_region_above, text_region_below
+
+def give_length_scale(image_path, point1, point2):
+    gray_image, color_image = load_image(image_path)
+    scale_bar_info, text_region_above, text_region_below = find_horizontal_scale_bar_with_text(gray_image)
 
     if scale_bar_info:
         scale_bar_length, x, y, w, h = scale_bar_info
-        print(f"Longueur de la barre détectée en pixels : {scale_bar_length}")
-
-        # Try to read the text above the bar first
-        scale_text = pytesseract.image_to_string(text_region_above, config='--psm 6').strip()
-        scale_value = validate_text_and_extract_value(scale_text)
-        if scale_value is None:
-            # If no valid text above, try below the bar
-            scale_text = pytesseract.image_to_string(text_region_below, config='--psm 6').strip()
-            scale_value = validate_text_and_extract_value(scale_text)
-
-        if scale_value is None:
-            raise ValueError(f"Impossible de trouver une valeur valide pour l'échelle. Texte détecté : {scale_text}")
-
-        print(f"Valeur numérique extraite pour l'échelle : {scale_value} mm")
-
-        annotated_image = annotate_image_with_scale_and_text(color_image, x, y, w, h, scale_text, point1, point2)
-        cv2.imshow("Annotated Image with Scale Bar and Points", annotated_image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
+        scale_value = read_scale(text_region_above, text_region_below)
         real_distance = measure_distance_between_points(point1, point2, scale_bar_length, scale_value)
-        print(f"Distance réelle entre les deux points : {real_distance:.3f} mm")
+        return real_distance
     else:
-        print("Aucune barre d'échelle détectée.")
+        return None
+
+
+
+
+if __name__ == "__main__":
+    image_path = "/Users/massirashidi/original/08costa-1723_p_1.jpg"
+    point1 = (100, 200)
+    point2 = (300, 400)
+
+    real_distance = give_length_scale(image_path, point1, point2)
+
+    print(f"The real-world distance between the two points is: {real_distance} mm.")
+    
