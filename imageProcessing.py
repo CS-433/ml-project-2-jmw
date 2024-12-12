@@ -249,12 +249,12 @@ def create_channel(points, shape, radius=2):
 take single-channel image img (numpy array) and add red and green channels highlighting the 2 points
 (result has 3-channels)
 """
-def add_point_channels(img, point1, point2):
+def add_point_channels(img, point1, point2, radius = 2):
     # Create a channel to visualise the points
     shape = img.shape
     x1, y1, x2, y2 = point1[0], point1[1], point2[0], point2[1]
-    point1_channel = create_channel([(x1, y1)], shape, radius = 2)
-    point2_channel = create_channel([(x2, y2)], shape, radius = 2)
+    point1_channel = create_channel([(x1, y1)], shape, radius = radius)
+    point2_channel = create_channel([(x2, y2)], shape, radius = radius)
 
     # Turn one-channel simplified image to 3 channels
     rgb = np.stack([img] * 3, axis=-1)

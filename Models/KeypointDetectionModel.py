@@ -169,7 +169,7 @@ def get_batch(data, batchsize = 25, augment_images = True):
 def get_full_unshuffled_batch(data, augment_images = True):
 
     """
-    Same as get_batch above but for testing purposes. Doesn't shuffle the data and
+    Same as get_batch above but to generate error data for the Confidence model. Doesn't shuffle the data and
     returns the full batch.
     """
 
@@ -200,6 +200,19 @@ def get_full_unshuffled_batch(data, augment_images = True):
     
     features_tensor, targets_tensor = torch.stack(features), torch.stack(targets)
     return features_tensor, targets_tensor, names
+
+
+def get_input_tensor_from_image_path(img_path, augment = False, device = "mps"):
+    base, _ = os.path.splitext(img_path)
+    img_path = f"{base}.png"
+
+    # Prepare image and keypoints for the model
+    img, keypoints = Augment.prepare_for_model(img_path, [], augment_images=augment)
+    x, _ = to_xy(img, keypoints)
+    # We somehow have to unsqueeze twice, could be worth investigating
+    x_tensor = x.unsqueeze(0).unsqueeze(0).to(device)  # Move to the correct device (MPS or CPU)
+    return x_tensor
+
 
 
 
