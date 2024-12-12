@@ -32,6 +32,6 @@ def combine_csv(files, output_file):
 
 
 if __name__ == "__main__":
-    csv_names = ["wene.csv", "massi.csv", "julien.csv"]
+    csv_names = ["./CSVs/wene.csv", "./CSVs/massi.csv", "./CSVs/julien.csv"]
     combine_csv(csv_names, "combined.csv")
     
