@@ -13,26 +13,63 @@ from matplotlib import pyplot as plt
 
 from Config import Config
 
+"""
+In this file we define and train a KeyPoint Detection (KPD) Model from scratch.
+"""
 
-# Transform an image and keypoints = [(x1, y1), (x2, y2)] into x and y for the model. 
-# The image should already have the right shape for the model.
+
 def to_xy(image, key_points = []):
+    """
+    Transforms and normalizes an image and its corresponding keypoints into the input 
+    and desired output format for a model.
+
+    Parameters:
+    ----------
+    image : numpy.ndarray
+        A one-channel image represented as a numpy array. The shape of the 
+        array must match the shape defined in `Config.input_image_shape`.
+    key_points : list of tuples, optional
+        A list containing two keypoints, where each keypoint is represented 
+        as a tuple of (x, y) coordinates. Example: [(x1, y1), (x2, y2)].
+
+    Returns:
+    -------
+    tuple:
+        - torch.Tensor: The normalized image as a PyTorch tensor with type float.
+        - torch.Tensor or list: If `key_points` contains two keypoints, returns a 
+          PyTorch tensor with the normalized coordinates [x1, x2, y1, y2]. 
+          Otherwise, returns an empty list.
+
+    Raises:
+    ------
+    ValueError:
+        If the shape of the input image does not match the expected shape 
+        defined in `Config.input_image_shape`.
+
+    Notes:
+    ------
+    - The image is normalized by dividing each pixel value by the maximum pixel 
+      value in the image.
+    - The keypoints are normalized based on the dimensions of the image.
+    """
+
     shape = Config.input_image_shape
     if image.shape != shape:
         raise ValueError("Image shape doesn't match config shape !")
-    image = image/np.max(image) #normalize
+    image = image/np.max(image) #normalize pixel activations
     if len(key_points) == 2:
         x1, y1, x2, y2 = key_points[0][0], key_points[0][1], key_points[1][0], key_points[1][1]
-        x1, x2 = x1/shape[1], x2/shape[1]
-        y1, y2 = y1/shape[0], y2/shape[0]
+        x1, x2 = x1/shape[1], x2/shape[1] # Normalize coords
+        y1, y2 = y1/shape[0], y2/shape[0] # Normalize coords
 
         return torch.from_numpy(image).float(), torch.asarray([x1, x2, y1, y2])
 
     return torch.from_numpy(image).float(), []
 
 
-
-
+"""
+Simple architecture with convolutionnal layers followed by fully connected layers.
+"""
 class KeypointDetectionModel(nn.Module):
     def __init__(self):
         input_shape = Config.input_image_shape
@@ -44,8 +81,7 @@ class KeypointDetectionModel(nn.Module):
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1) 
         
         # Max pooling layers
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)  # Halves dimensions
-        
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2) 
         self.flatten = torch.nn.Flatten()
 
         # Fully connected layers
@@ -79,18 +115,30 @@ class KeypointDetectionModel(nn.Module):
         return x
 
 
+
 def get_batch(data, batchsize = 25, augment_images = True):
+
+    """
+    Generates a batch of data for the model.
+
+    Parameters:
+    ----------
+    data : list of dict
+        A list where each dictionary represents an image and its keypoints:
+        "Image Name", "x1", "y1", "x2", "y2".
+    batchsize : int, optional
+        The number of samples per batch (default is 25).
+    augment_images : bool, optional
+        Whether to apply image augmentation (default is True).
+
+    Returns:
+    -------
+    tuple:
+        A batch of images and corresponding labels/coordinates.
+    """
 
     features, targets = [], []
     dataset = []
-
-    """
-    # Open the CSV file and read its contents into a dictionary
-    # The stored data is: picture_name, x1, y1, x2, y2 
-    with open(Config.coords_file_path, mode='r') as file:
-        reader = csv.DictReader(file)  # Use DictReader to automatically map rows to dictionaries
-        data = [row for row in reader]  # Convert each row into a dictionary and store in a list
-    """
     
     # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
     names = []
@@ -119,6 +167,11 @@ def get_batch(data, batchsize = 25, augment_images = True):
 
 
 def get_full_unshuffled_batch(data, augment_images = True):
+
+    """
+    Same as get_batch above but for testing purposes. Doesn't shuffle the data and
+    returns the full batch.
+    """
 
     features, targets = [], []
     dataset = []
@@ -152,6 +205,14 @@ def get_full_unshuffled_batch(data, augment_images = True):
 
 """
 Plot keypoint detection model prediction side by side with expected keypoints
+Arguments:
+    - kpd_model: the keypoint detection model
+    - data: still a list of dict
+    - n_images: how many examples to plot
+    - augment_images: wether to augment the images
+    - device: on which device (cpu, mps, cuda) to run the model
+    - conf_model: optionnal, print the confidence model's expected error
+    - error_estimation_interval: Only print images for which the confidence model's error estimate lies in this interval.
 """
 def plot_model_prediction(kpd_model, data, n_images, augment_images = False, device=None, conf_model = None, error_estimation_interval = [-1, 1]):
 

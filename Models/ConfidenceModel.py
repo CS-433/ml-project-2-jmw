@@ -14,6 +14,20 @@ from Models import KeypointDetectionModel
 
 
 
+"""
+The confidence model aims to learn from the images and the KPD Models predictions which images are "hard".
+For example, an unusual body shape or keypoints hidden by the ant's legs make it hard for the model to find 
+the Keypoints. The aim is to be able to automatically make measurements on the "easy" images, while "hard" images
+will still require human measures.
+
+It learns to predict the MSE of the trained KPD model on images.
+"""
+
+
+
+"""
+Simple architecture with convolutionnal layers followed by fully connected layers.
+"""
 class ConfidenceModel(nn.Module):
     def __init__(self):
         input_shape = Config.input_image_shape
@@ -62,7 +76,25 @@ class ConfidenceModel(nn.Module):
         return x
 
 
+
 def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max = None):
+    """
+    Run the KPD model to get the error data. 
+    Parameters:
+    ----------
+    kpd_model : the kpd_model
+    data: as always a list of dict
+    device: which device to run the kpd model on
+    norm_min and norm_max: 
+        we normalize the kpd_model errors using min max normalization because they are small. By default,
+        norm_min = None, norm_max = None implies that the min and max will be computed. Different normalization 
+        values can be given, 0 and 1 to avoid normalization.
+
+    Returns:
+    -------
+    error_data: a list of dictionnaries with entries "Image Name" and "Error" (the mse of the kpd model on that image)
+    norm_min, norm_max: the computed normalization min and max
+    """
     print("Building error data for confidence model")
     with torch.no_grad():
         kpd_model.eval()
@@ -74,7 +106,6 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
         mse_per_vector = torch.mean(errors, dim=1, keepdim=True)
         if not(norm_min == 0 and norm_max == 1):
             norm_min, norm_max = torch.min(mse_per_vector), torch.max(mse_per_vector)
-            print(norm_min, norm_max)
         
         mse_per_vector = (mse_per_vector - norm_min)/(norm_max - norm_min)
     
@@ -90,18 +121,33 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
 
 def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "mps"):
 
+    """
+    Generates a batch of data for the model.
+    Note that this version always runs the KPD model's predictions.
+    Therefore it is relatively safe from programmer mistakes (we are sure that the measured error)
+    comes from the given image but it is super slow because it doesn't use pre-computed errors.
+
+    Parameters:
+    ----------
+    data : list of dict
+        A list where each dictionary represents an image and its keypoints:
+        "Image Name", "x1", "y1", "x2", "y2".
+    batchsize : int, optional
+        The number of samples per batch (default is 25).
+    augment_images : bool, optional
+        Whether to apply image augmentation (default is True).
+    device: which device to run the kpd predictions on
+
+    Returns:
+    -------
+    tuple:
+        A batch of images and corresponding labels/errors.
+    """
+
     kpd_model.eval()
 
     features, targets = [], []
     dataset = []
-
-    """
-    # Open the CSV file and read its contents into a dictionary
-    # The stored data is: picture_name, x1, y1, x2, y2 
-    with open(Config.coords_file_path, mode='r') as file:
-        reader = csv.DictReader(file)  # Use DictReader to automatically map rows to dictionaries
-        data = [row for row in reader]  # Convert each row into a dictionary and store in a list
-    """
     
     # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
     names = []
@@ -143,6 +189,15 @@ def get_batch(data, kpd_model, batchsize = 25, augment_images = True, device = "
 
 def get_batch_fast(error_data, batchsize = 25, augment_images = False, device = "mps"):
 
+    """
+    Faster version of get_batch. Much faster because uses precomputed errors and doesn't run the 
+    KPD model. However, a mistake could appear somewhere down the line that causes the errors to be unrelated 
+    to the images (a batch getting shuffled somewhere).
+    
+    Compared to get_batch, data has been replaced by error_data which is still a list of dict, but with entries:
+    "Image Name", "Error".
+    """
+
     features, errors = [], []
     
     # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
@@ -167,7 +222,7 @@ def get_batch_fast(error_data, batchsize = 25, augment_images = False, device = 
 
 
 """
-We want to normalize the KPD Model error to make training more reliable. So the following function aims to find the 
+We want to normalize the KPD Model error to make training more reliable. So the following function aims to estimates 
 max and min values of the error.
 """
 def get_error_normalization(kpd_model, data, batchsize = 100, augment_images = False, device = "mps"):
@@ -182,8 +237,42 @@ def get_error_normalization(kpd_model, data, batchsize = 100, augment_images = F
 
 
 
-
 def train_conf_model(conf_model, kpd_model, train_data, test_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
+    
+    """
+    Train our confidence model.
+
+    Parameters:
+    ----------
+    conf_model: the confidence model.
+    kpd_model : torch.nn.Module
+        The keypoint detection model.
+    train_data : Any
+        The training dataset, expected to work with `model.get_batch` for batch retrieval.
+        Is in the form of a list of dictionnaries. Each dict is a datapoint and has entries "Image Name", "x1", "y1", "x2", "y2".
+    test_data : Any
+        The testing/validation dataset, same form as train_data.
+    batchsize : int
+        The number of training samples in each batch.
+    test_batchsize : int
+        The number of testing samples in each test batch.
+    epochs : int
+        The total number of epochs for training.
+    initial_lr : float, optional
+        The initial learning rate for the optimizer (default: 1e-5).
+    lr_decay : float, optional
+        Multiplicative factor for learning rate decay at each epoch (default: 0.99).
+    device : str, optional
+        The device to run training on (e.g., "cpu", "cuda", "mps") (default: "mps").
+    augment_training_images : bool, optional
+        Whether to apply image augmentation to the training data (default: False).
+        Results seem better without augmentation: trade-off more specific model vs more robust.
+    feedback_rate : int, optional
+        Interval (in epochs) at which feedback (e.g., test loss and predictions) is provided (default: 50).
+    normalize_errors: bool, optional
+        Somehow we get better results without normalization. Needs investigation.
+    """
+
     best_test_loss = 10
 
     criterion = nn.MSELoss()  # Loss for regression
@@ -238,7 +327,9 @@ def train_conf_model(conf_model, kpd_model, train_data, test_data, batchsize, te
 
 
 
-
+"""
+Fast version of train_conf_model. Uses the pre-computed errors (list of dicts with entries "Image Name" and "Error".)
+"""
 def train_conf_model_fast(conf_model, train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
     best_test_loss = 10
 
