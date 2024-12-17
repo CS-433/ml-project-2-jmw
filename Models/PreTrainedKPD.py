@@ -1,11 +1,12 @@
 import torch.nn as nn
 import torchvision.models as models
 import Augment
+from Config import Config
 
 
 
 class KeypointDetectionModel(nn.Module):
-    def __init__(self, input_image_shape = (126, 256), input_channels=1, output_features=4):
+    def __init__(self, input_image_shape = Config.input_image_shape_pretrained_model, input_channels=1, output_features=4):
         super(KeypointDetectionModel, self).__init__()
 
         self.input_shape = input_image_shape

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from Config import Config
 
 import Augment
 
@@ -13,7 +14,7 @@ In this file we define and train a KeyPoint Detection (KPD) Model from scratch.
 Simple architecture with convolutionnal layers followed by fully connected layers.
 """
 class KeypointDetectionModel(nn.Module):
-    def __init__(self, input_image_shape = (80, 160)):
+    def __init__(self, input_image_shape = Config.input_image_shape_basic_model):
         self.input_shape = input_image_shape
         self.pipeline, self.augment_pipeline = Augment.create_transform_pipeline(False, self.input_shape), Augment.create_transform_pipeline(True, self.input_shape)
 

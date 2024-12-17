@@ -46,10 +46,7 @@ def to_xy(image, key_points = []):
     - The keypoints are normalized based on the dimensions of the image.
     """
 
-    #shape = Config.input_image_shape
     shape = image.shape
-    #if image.shape != shape:
-    #    raise ValueError("Image shape doesn't match config shape !")
     image = image/np.max(image) #normalize pixel activations
     if len(key_points) == 2:
         x1, y1, x2, y2 = key_points[0][0], key_points[0][1], key_points[1][0], key_points[1][1]
@@ -90,7 +87,6 @@ def get_batch(data, pipeline, batchsize = 25):
     # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
     names = []
     for image_data in random.sample(data, batchsize):
-        #print(image_data)
         name = image_data["Image Name"]
         img_path = os.path.join(Config.images_folder_path + "/", name)
         # Replace the suffix with .png
@@ -98,7 +94,6 @@ def get_batch(data, pipeline, batchsize = 25):
         img_path = f"{base}.png"
         x1, y1 = image_data["x1"], image_data["y1"]
         x2, y2 = image_data["x2"], image_data["y2"]
-        #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
         img, keypoints = Augment.prepare_for_model(img_path, pipeline, [(x1, y1), (x2, y2)])
 
@@ -160,7 +155,6 @@ def plot_model_prediction(kpd_model, data, n_images, augment_images = False, dev
         """
         y1pred, x1pred, y2pred, x2pred = pred[0][0].item() * kpd_model.input_shape[0], pred[0][1].item() * kpd_model.input_shape[1], pred[0][2].item() * kpd_model.input_shape[0], pred[0][3].item() * kpd_model.input_shape[1]
 
-        #img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)])
         
         # If len(keypoints) != 2, then the augmentation lost a keypoint (too much rotation for example) and we are not interested
         if len(keypoints) == 2:
@@ -300,7 +294,6 @@ def get_full_unshuffled_batch(data, pipeline):
     # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
     names = []
     for image_data in data:
-        #print(image_data)
         name = image_data["Image Name"]
         img_path = os.path.join(Config.images_folder_path + "/", name)
         # Replace the suffix with .png
@@ -308,7 +301,6 @@ def get_full_unshuffled_batch(data, pipeline):
         img_path = f"{base}.png"
         x1, y1 = image_data["x1"], image_data["y1"]
         x2, y2 = image_data["x2"], image_data["y2"]
-        #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
         img, keypoints = Augment.prepare_for_model(img_path, pipeline, [(x1, y1), (x2, y2)])
 

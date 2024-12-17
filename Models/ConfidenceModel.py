@@ -22,8 +22,8 @@ It learns to predict the MSE of the trained KPD model on images.
 Simple architecture with convolutionnal layers followed by fully connected layers.
 """
 class ConfidenceModel(nn.Module):
-    def __init__(self):
-        input_shape = Config.input_image_shape
+    def __init__(self, input_image_shape = Config.input_image_shape_basic_model):
+        input_shape = input_image_shape
         super(ConfidenceModel, self).__init__()
         
         # Convolutional layers
