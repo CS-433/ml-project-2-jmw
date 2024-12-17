@@ -1,9 +1,6 @@
 import numpy as np
 
 
-
-
-
 def create_channel(points, shape, radius=2):
     """
     Creates an image channel of the given shape where circles of a given radius

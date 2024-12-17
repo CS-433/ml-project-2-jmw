@@ -62,55 +62,6 @@ def to_xy(image, key_points = []):
 
 
 
-def get_batch_old(data, batchsize = 25, augment_images = True):
-
-    """
-    Generates a batch of data for the model.
-
-    Parameters:
-    ----------
-    data : list of dict
-        A list where each dictionary represents an image and its keypoints:
-        "Image Name", "x1", "y1", "x2", "y2".
-    batchsize : int, optional
-        The number of samples per batch (default is 25).
-    augment_images : bool, optional
-        Whether to apply image augmentation (default is True).
-
-    Returns:
-    -------
-    tuple:
-        A batch of images and corresponding labels/coordinates.
-    """
-
-    features, targets = [], []
-    dataset = []
-    
-    # Add the image to the image_data dictionnary (seemed more convenient but might actually be stupid)
-    names = []
-    for image_data in random.sample(data, batchsize):
-        #print(image_data)
-        name = image_data["Image Name"]
-        img_path = os.path.join(Config.images_folder_path + "/", name)
-        # Replace the suffix with .png
-        base, _ = os.path.splitext(img_path)
-        img_path = f"{base}.png"
-        x1, y1 = image_data["x1"], image_data["y1"]
-        x2, y2 = image_data["x2"], image_data["y2"]
-        #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-        img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)], augment_images=augment_images)
-
-        if len(keypoints) == 2:
-            x, y = to_xy(img, keypoints)
-            features.append(x.unsqueeze(0))
-            targets.append(y)
-            dataset.append((x, y))
-            names.append(name)
-    
-    features_tensor, targets_tensor = torch.stack(features), torch.stack(targets)
-    return features_tensor, targets_tensor, names
-
 
 def get_batch(data, pipeline, batchsize = 25):
 
@@ -149,7 +100,7 @@ def get_batch(data, pipeline, batchsize = 25):
         x2, y2 = image_data["x2"], image_data["y2"]
         #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        img, keypoints = Augment.prepare_for_model2(img_path, pipeline, [(x1, y1), (x2, y2)])
+        img, keypoints = Augment.prepare_for_model(img_path, pipeline, [(x1, y1), (x2, y2)])
 
         if len(keypoints) == 2:
             x, y = to_xy(img, keypoints)
@@ -193,7 +144,7 @@ def plot_model_prediction(kpd_model, data, n_images, augment_images = False, dev
 
         # Prepare image and keypoints for the model
         pipeline = kpd_model.pipeline if not augment_images else kpd_model.augment_pipeline
-        img, keypoints = Augment.prepare_for_model2(img_path, pipeline, [(x1, y1), (x2, y2)])
+        img, keypoints = Augment.prepare_for_model(img_path, pipeline, [(x1, y1), (x2, y2)])
         x, _ = to_xy(img, keypoints)
         # We somehow have to unsqueeze twice, could be worth investigating
         x_tensor = x.unsqueeze(0).unsqueeze(0).to(device)  # Move to the correct device (MPS or CPU)
@@ -336,7 +287,7 @@ def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, fee
 
 
 
-def get_full_unshuffled_batch(data, augment_images = True):
+def get_full_unshuffled_batch(data, pipeline, augment_images = False):
 
     """
     Same as get_batch above but to generate error data for the Confidence model. Doesn't shuffle the data and
@@ -359,7 +310,7 @@ def get_full_unshuffled_batch(data, augment_images = True):
         x2, y2 = image_data["x2"], image_data["y2"]
         #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        img, keypoints = Augment.prepare_for_model(img_path, [(x1, y1), (x2, y2)], augment_images=augment_images)
+        img, keypoints = Augment.prepare_for_model(img_path, pipeline, [(x1, y1), (x2, y2)])
 
         if len(keypoints) == 2:
             x, y = to_xy(img, keypoints)
@@ -373,12 +324,12 @@ def get_full_unshuffled_batch(data, augment_images = True):
 
 
 
-def get_input_tensor_from_image_path(img_path, augment = False, device = "mps"):
+def get_input_tensor_from_image_path(img_path, pipeline, device = "mps"):
     base, _ = os.path.splitext(img_path)
     img_path = f"{base}.png"
 
     # Prepare image and keypoints for the model
-    img, keypoints = Augment.prepare_for_model(img_path, [], augment_images=augment)
+    img, keypoints = Augment.prepare_for_model(img_path, pipeline, [])
     x, _ = to_xy(img, keypoints)
     # We somehow have to unsqueeze twice, could be worth investigating
     x_tensor = x.unsqueeze(0).unsqueeze(0).to(device)  # Move to the correct device (MPS or CPU)
@@ -408,7 +359,7 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
     print("Building error data for confidence model")
     with torch.no_grad():
         kpd_model.eval()
-        images, keypoints, names = get_full_unshuffled_batch(data, augment_images=False)
+        images, keypoints, names = get_full_unshuffled_batch(data, kpd_model.pipeline, augment_images=False)
         images = images.to(device)
         keypoints = keypoints.to(device)
         outputs = kpd_model(images)
@@ -473,7 +424,7 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
 
 
 
-def get_conf_batch_fast(error_data, batchsize = 25, augment_images = False, device = "mps"):
+def get_conf_batch_fast(error_data, pipeline, batchsize = 25, augment_images = False, device = "mps"):
 
     """
     Faster version of get_batch. Much faster because uses precomputed errors and doesn't run the 
@@ -495,7 +446,7 @@ def get_conf_batch_fast(error_data, batchsize = 25, augment_images = False, devi
         # Replace the suffix with .png
         base, _ = os.path.splitext(img_path)
         img_path = f"{base}.png"
-        img, keypoints = Augment.prepare_for_model(img_path, [], augment_images=augment_images)
+        img, keypoints = Augment.prepare_for_model(img_path, pipeline)
 
         x, y = to_xy(img, keypoints)
         features.append(x.unsqueeze(0))
@@ -615,7 +566,7 @@ def train_conf_model(conf_model, kpd_model, train_data, test_data, batchsize, te
 """
 Fast version of train_conf_model. Uses the pre-computed errors (list of dicts with entries "Image Name" and "Error".)
 """
-def train_conf_model_fast(conf_model, train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
+def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
     best_test_loss = 10
 
     criterion = nn.MSELoss()  # Loss for regression
@@ -627,7 +578,7 @@ def train_conf_model_fast(conf_model, train_error_data, test_error_data, batchsi
     # Note: might not be great conceptually to use the test data to find the normalization.
 
     for epoch in range(epochs):
-        images, errors, names = get_conf_batch_fast(train_error_data, batchsize=batchsize, augment_images=augment_training_images, device = device) 
+        images, errors, names = get_conf_batch_fast(train_error_data, kpd_pipeline, batchsize=batchsize, augment_images=augment_training_images, device = device) 
         images = images.to(device)
         errors = errors.to(device)
 
@@ -641,7 +592,7 @@ def train_conf_model_fast(conf_model, train_error_data, test_error_data, batchsi
         if not epoch % feedback_rate:
             with torch.no_grad():
                 conf_model.eval()
-                images, errors, names = get_conf_batch_fast(test_error_data, batchsize = test_batchsize, augment_images = False, device = device)  
+                images, errors, names = get_conf_batch_fast(test_error_data, kpd_pipeline, batchsize = test_batchsize, augment_images = False, device = device)  
                 images = images.to(device)
                 errors = errors.to(device)
                 #print(torch.max(errors))
@@ -668,7 +619,7 @@ def get_input_tensor_from_image_path(model, img_path, device = "mps"):
     img_path = f"{base}.png"
 
     # Prepare image and keypoints for the model
-    img, keypoints = Augment.prepare_for_model2(img_path, model.pipeline, [])
+    img, keypoints = Augment.prepare_for_model(img_path, model.pipeline, [])
     x, _ = to_xy(img, keypoints)
     # We somehow have to unsqueeze twice, could be worth investigating
     x_tensor = x.unsqueeze(0).unsqueeze(0).to(device)  # Move to the correct device (MPS or CPU)
