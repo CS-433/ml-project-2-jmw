@@ -9,6 +9,10 @@ class Config:
     We recommend (80, 120). More pixels can allow the model to become more precise but it will require more data.
     """
     input_image_shape_basic_model = (80, 160)
+
+    """
+    The pretrained model can leverage more parameters, since it doesn't require as much data as training a model from scratch.
+    """
     input_image_shape_pretrained_model = (126, 256)
 
     """
