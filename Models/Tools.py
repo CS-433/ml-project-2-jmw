@@ -206,7 +206,7 @@ def plot_model_prediction(kpd_model, data, n_images, augment_images = False, dev
 
 
 def plot_losses(train_loss, test_loss, first_fraction_to_skip = 0):
-    # Assuming train_loss and test_loss are lists of losses recorded at each epoch
+    # train_loss and test_loss are lists of losses recorded at each epoch. To skip first part where loss is very high to get more details, set first_fraction_to_skip > 0 
     n_epochs = len(train_loss)
     plot_from_epoch = int(first_fraction_to_skip*n_epochs)
     epochs = range(plot_from_epoch, n_epochs)
@@ -223,7 +223,7 @@ def plot_losses(train_loss, test_loss, first_fraction_to_skip = 0):
     plt.show()
 
 
-# Function to train the model
+# Function to train the KPD model
 def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, feedback_rate = 10, device="mps", initial_lr = 1e-4, lr_decay = 0.99, augment_training_images = False, plot_progression = True):
 
     train_losses, test_losses = [], []
@@ -287,7 +287,7 @@ def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, fee
 
 
 
-def get_full_unshuffled_batch(data, pipeline, augment_images = False):
+def get_full_unshuffled_batch(data, pipeline):
 
     """
     Same as get_batch above but to generate error data for the Confidence model. Doesn't shuffle the data and
@@ -424,7 +424,7 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
 
 
 
-def get_conf_batch_fast(error_data, pipeline, batchsize = 25, augment_images = False, device = "mps"):
+def get_conf_batch_fast(error_data, pipeline, batchsize = 25, device = "mps"):
 
     """
     Faster version of get_batch. Much faster because uses precomputed errors and doesn't run the 
@@ -472,95 +472,6 @@ def get_error_normalization_conf(kpd_model, data, batchsize = 100, augment_image
     print("Computed error-normalization function.")
     return normalizer
 
-
-"""
-def train_conf_model(conf_model, kpd_model, train_data, test_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
-    
-    Train our confidence model.
-
-    Parameters:
-    ----------
-    conf_model: the confidence model.
-    kpd_model : torch.nn.Module
-        The keypoint detection model.
-    train_data : Any
-        The training dataset, expected to work with `model.get_batch` for batch retrieval.
-        Is in the form of a list of dictionnaries. Each dict is a datapoint and has entries "Image Name", "x1", "y1", "x2", "y2".
-    test_data : Any
-        The testing/validation dataset, same form as train_data.
-    batchsize : int
-        The number of training samples in each batch.
-    test_batchsize : int
-        The number of testing samples in each test batch.
-    epochs : int
-        The total number of epochs for training.
-    initial_lr : float, optional
-        The initial learning rate for the optimizer (default: 1e-5).
-    lr_decay : float, optional
-        Multiplicative factor for learning rate decay at each epoch (default: 0.99).
-    device : str, optional
-        The device to run training on (e.g., "cpu", "cuda", "mps") (default: "mps").
-    augment_training_images : bool, optional
-        Whether to apply image augmentation to the training data (default: False).
-        Results seem better without augmentation: trade-off more specific model vs more robust.
-    feedback_rate : int, optional
-        Interval (in epochs) at which feedback (e.g., test loss and predictions) is provided (default: 50).
-    normalize_errors: bool, optional
-        Somehow we get better results without normalization. Needs investigation.
- 
-
-    best_test_loss = 10
-
-    criterion = nn.MSELoss()  # Loss for regression
-    optimizer = torch.optim.Adam(conf_model.parameters(), lr=initial_lr)
-    scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda epoch: lr_decay)
-
-    conf_model.train()
-    kpd_model.eval()
-
-    # Note: might not be great conceptually to use the test data to find the normalization.
-    if normalize_errors:
-        normalization_function = get_error_normalization_conf(kpd_model, train_data, batchsize=400, augment_images=augment_training_images, device=device)
-    else: normalization_function = lambda x: x
-
-    for epoch in range(epochs):
-        images, errors, names = get_batch(train_data, kpd_model, batchsize=batchsize, augment_images=augment_training_images, device = device) 
-        images = images.to(device)
-        errors = errors.to(device)
-        errors = normalization_function(errors) 
-
-        optimizer.zero_grad()
-        outputs = conf_model(images)  # Forward pass
-        loss = criterion(outputs, errors)  # Compute loss
-        loss.backward()  # Backpropagation
-        optimizer.step()  # Update weights
-        scheduler.step() # Update LR 
-
-        if not epoch % feedback_rate:
-            with torch.no_grad():
-                conf_model.eval()
-                images, errors, names = get_batch(test_data, kpd_model, batchsize = test_batchsize, augment_images = False, device = device)  
-                errors = normalization_function(errors)
-                images = images.to(device)
-                errors = errors.to(device)
-                errors = normalization_function(errors)
-                #print(torch.max(errors))
-                #print(torch.min(errors))
-
-                #print(outputs, errors)
-                outputs = conf_model(images)  # Forward pass
-                test_loss = criterion(outputs, errors)  # Compute loss
-                current_lr = optimizer.param_groups[0]['lr']
-                print(f"Epoch {epoch}: test loss = {test_loss}, lr = {current_lr}")
-
-                conf_model.train()
-        
-            if test_loss < best_test_loss:
-                best_test_loss = test_loss
-                best_model_state = conf_model.state_dict()
-
-    conf_model.load_state_dict(best_model_state)
-"""
 
 
 """
