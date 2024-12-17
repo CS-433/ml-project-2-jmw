@@ -9,6 +9,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import imageProcessing as ip
 
+import torch.nn.functional as F
+
+
 
 
 def to_xy(image, key_points = []):
@@ -257,6 +260,7 @@ def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, fee
                 test_loss = criterion(outputs, keypoints)  # Compute loss
                 current_lr = optimizer.param_groups[0]['lr']
                 print(f"Epoch {epoch}: test loss = {test_loss}, lr = {current_lr}")
+                print(f"Distance error = ", get_distance_loss(outputs, keypoints))
 
                 """
                 if plot_predictions:
@@ -279,6 +283,33 @@ def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, fee
         plot_losses(train_losses, test_losses, first_fraction_to_skip=1/3)
 
 
+def get_distance_loss(outputs, keypoints):
+    """
+    Computes the distance error (loss) between the predicted and ground-truth keypoints.
+
+    Args:
+        outputs (torch.Tensor): Predicted keypoints in the format [x1, y1, x2, y2].
+        keypoints (torch.Tensor): Ground-truth keypoints in the format [x1, y1, x2, y2].
+
+    Returns:
+        torch.Tensor: The distance error as a scalar tensor.
+    """
+    # Ensure inputs are tensors
+    outputs = outputs.view(-1, 4)  # Reshape to [batch_size, 4] if necessary
+    keypoints = keypoints.view(-1, 4)
+
+    # Extract predicted and ground-truth coordinates
+    x1_pred, y1_pred, x2_pred, y2_pred = outputs[:, 0], outputs[:, 1], outputs[:, 2], outputs[:, 3]
+    x1_true, y1_true, x2_true, y2_true = keypoints[:, 0], keypoints[:, 1], keypoints[:, 2], keypoints[:, 3]
+
+    # Compute predicted and ground-truth distances
+    pred_distances = torch.sqrt((x2_pred - x1_pred)**2 + (y2_pred - y1_pred)**2)
+    true_distances = torch.sqrt((x2_true - x1_true)**2 + (y2_true - y1_true)**2)
+
+    # Compute the absolute error between the distances
+    distance_loss = F.l1_loss(pred_distances, true_distances)
+
+    return distance_loss.item()
 
 
 def get_full_unshuffled_batch(data, pipeline):
