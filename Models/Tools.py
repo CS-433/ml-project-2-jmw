@@ -11,7 +11,11 @@ import imageProcessing as ip
 
 import torch.nn.functional as F
 
-
+"""
+TODO : find a way later to deal with cuda for windows (I personnaly only have cpu for now)
+with module platform for instance
+"""
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 
 def to_xy(image, key_points = []):
@@ -122,7 +126,7 @@ Arguments:
     - conf_model: optionnal, print the confidence model's expected error
     - error_estimation_interval: Only print images for which the confidence model's error estimate lies in this interval.
 """
-def plot_model_prediction(kpd_model, data, n_images, augment_images = False, device="mps", conf_model = None, error_estimation_interval = [-1, 1], radius = 4):
+def plot_model_prediction(kpd_model, data, n_images, augment_images = False, device=device, conf_model = None, error_estimation_interval = [-1, 1], radius = 4):
 
     # Set model to evaluation mode (disables dropout, batchnorm, etc.)
     kpd_model.eval()
@@ -221,7 +225,7 @@ def plot_losses(train_loss, test_loss, first_fraction_to_skip = 0):
 
 
 # Function to train the KPD model
-def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, feedback_rate = 10, device="mps", initial_lr = 1e-4, lr_decay = 0.99, augment_training_images = False, plot_progression = True):
+def train_kpd_model(kpd_model, train_data, test_data, batchsize, num_epochs, feedback_rate = 10, device=device, initial_lr = 1e-4, lr_decay = 0.99, augment_training_images = False, plot_progression = True):
 
     train_losses, test_losses = [], []
 
@@ -347,7 +351,7 @@ def get_full_unshuffled_batch(data, pipeline):
 
 
 
-def get_input_tensor_from_image_path(img_path, pipeline, device = "mps"):
+def get_input_tensor_from_image_path(img_path, pipeline, device = device):
     base, _ = os.path.splitext(img_path)
     img_path = f"{base}.png"
 
@@ -361,7 +365,7 @@ def get_input_tensor_from_image_path(img_path, pipeline, device = "mps"):
 
 
 
-def build_error_data(kpd_model, data, device = "mps", clamp_threshold = 0.004):
+def build_error_data(kpd_model, data, device = device, clamp_threshold = 0.004):
     """
     Run the KPD model to get the error data. 
     Parameters:
@@ -444,7 +448,7 @@ def build_error_data(kpd_model, data, device = "mps", clamp_threshold = 0.004):
 
 
 
-def get_conf_batch_fast(error_data, pipeline, batchsize = 25, device = "mps"):
+def get_conf_batch_fast(error_data, pipeline, batchsize = 25, device = device):
 
     """
     Faster version of get_batch. Much faster because uses precomputed errors and doesn't run the 
@@ -497,7 +501,7 @@ def get_error_normalization_conf(kpd_model, data, batchsize = 100, augment_image
 """
 Fast version of train_conf_model. Uses the pre-computed errors (list of dicts with entries "Image Name" and "Error".)
 """
-def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", feedback_rate = 20):
+def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = device, feedback_rate = 20):
     best_test_loss = 10
 
     criterion = nn.MSELoss()  # Loss for regression
@@ -545,7 +549,7 @@ def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error
 
 
 
-def get_input_tensor_from_image_path(model, img_path, device = "mps"):
+def get_input_tensor_from_image_path(model, img_path, device = device):
     base, _ = os.path.splitext(img_path)
     img_path = f"{base}.png"
 
