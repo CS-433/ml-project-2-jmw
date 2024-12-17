@@ -361,7 +361,7 @@ def get_input_tensor_from_image_path(img_path, pipeline, device = "mps"):
 
 
 
-def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max = None, clamp_threshold = 0.004):
+def build_error_data(kpd_model, data, device = "mps", clamp_threshold = 0.004):
     """
     Run the KPD model to get the error data. 
     Parameters:
@@ -369,20 +369,17 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
     kpd_model : the kpd_model
     data: as always a list of dict
     device: which device to run the kpd model on
-    norm_min and norm_max: 
-        we normalize the kpd_model errors using min max normalization because they are small. By default,
-        norm_min = None, norm_max = None implies that the min and max will be computed. Different normalization 
-        values can be given, 0 and 1 to avoid normalization.
+    clamp_threshold:
+        to avoid large tail distribution, we set every error > clamp_threshold to clamp_threshold
 
     Returns:
     -------
     error_data: a list of dictionnaries with entries "Image Name" and "Error" (the mse of the kpd model on that image)
-    norm_min, norm_max: the computed normalization min and max
     """
     print("Building error data for confidence model")
     with torch.no_grad():
         kpd_model.eval()
-        images, keypoints, names = get_full_unshuffled_batch(data, kpd_model.pipeline, augment_images=False)
+        images, keypoints, names = get_full_unshuffled_batch(data, kpd_model.pipeline)
         images = images.to(device)
         keypoints = keypoints.to(device)
         outputs = kpd_model(images)
@@ -442,7 +439,7 @@ def build_error_data(kpd_model, data, device = "mps", norm_min = None, norm_max 
 
     error_data = [{"Image Name": names[i], "Error": scaled_errors[i].item()} for i in range(len(names))]
     
-    return error_data, 0, 0
+    return error_data
 
 
 
@@ -484,7 +481,7 @@ def get_conf_batch_fast(error_data, pipeline, batchsize = 25, device = "mps"):
 """
 We want to normalize the KPD Model error to make training more reliable. So the following function aims to estimates 
 max and min values of the error.
-"""
+
 def get_error_normalization_conf(kpd_model, data, batchsize = 100, augment_images = False, device = "mps"):
     kpd_model.eval()
     with torch.no_grad():
@@ -494,13 +491,13 @@ def get_error_normalization_conf(kpd_model, data, batchsize = 100, augment_image
     normalizer = lambda error: (error-min_error)/(max_error-min_error)
     print("Computed error-normalization function.")
     return normalizer
-
+"""
 
 
 """
 Fast version of train_conf_model. Uses the pre-computed errors (list of dicts with entries "Image Name" and "Error".)
 """
-def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", augment_training_images = False, feedback_rate = 20, normalize_errors = True):
+def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error_data, batchsize, test_batchsize, epochs, initial_lr = 1e-5, lr_decay = 0.99, device = "mps", feedback_rate = 20):
     best_test_loss = 10
 
     criterion = nn.MSELoss()  # Loss for regression
@@ -512,7 +509,7 @@ def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error
     # Note: might not be great conceptually to use the test data to find the normalization.
 
     for epoch in range(epochs):
-        images, errors, names = get_conf_batch_fast(train_error_data, kpd_pipeline, batchsize=batchsize, augment_images=augment_training_images, device = device) 
+        images, errors, names = get_conf_batch_fast(train_error_data, kpd_pipeline, batchsize=batchsize, device = device) 
         images = images.to(device)
         errors = errors.to(device)
 
@@ -526,7 +523,7 @@ def train_conf_model_fast(conf_model, kpd_pipeline ,train_error_data, test_error
         if not epoch % feedback_rate:
             with torch.no_grad():
                 conf_model.eval()
-                images, errors, names = get_conf_batch_fast(test_error_data, kpd_pipeline, batchsize = test_batchsize, augment_images = False, device = device)  
+                images, errors, names = get_conf_batch_fast(test_error_data, kpd_pipeline, batchsize = test_batchsize, device = device)  
                 images = images.to(device)
                 errors = errors.to(device)
                 #print(torch.max(errors))
