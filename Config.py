@@ -8,12 +8,18 @@ class Config:
     Images will be transformed into this shape (pixel height, pixel width) before being fed to the model.
     We recommend (80, 120). More pixels can allow the model to become more precise but it will require more data.
     """
-    input_image_shape = (80, 120)
+    input_image_shape_basic_model = (80, 160)
+    input_image_shape_pretrained_model = (126, 256)
 
     """
     The folder that contains ant images without background in .png.
     """
     images_folder_path = "clean"
+
+    """
+    The original images (with background and scale)
+    """
+    original_images_folder_path = "original"
 
     """
     Training is done on a CSV file that contains 5 columns, for example:
