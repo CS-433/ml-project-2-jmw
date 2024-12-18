@@ -11,11 +11,7 @@ import imageProcessing as ip
 
 import torch.nn.functional as F
 
-"""
-TODO : find a way later to deal with cuda for windows (I personnaly only have cpu for now)
-with module platform for instance
-"""
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+device = torch.device(Config.device if Config.is_available() else "cpu")
 
 
 def to_xy(image, key_points = []):

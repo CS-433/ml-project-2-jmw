@@ -1,3 +1,5 @@
+import torch
+
 """
 Define the software configuration. 
 """
@@ -34,3 +36,11 @@ class Config:
     (x1, y1) is the where the Vertex of the Head lies and (x2, y2) is where the Petiole lies (pixel coordinates on the image)
     """
     coords_file_path = "CSVs/combined.csv"
+
+    """
+    Computer device : mps for mac cuda for windows graphics
+    Do not bother if you are using cpu
+    """
+    device = "mps"
+    #we could eventualy just use Config.device everywhere
+    is_available = torch.backends.mps.is_available
