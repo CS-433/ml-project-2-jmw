@@ -45,3 +45,4 @@ class Config:
     device = "mps"
     # we could eventualy just use Config.device everywhere
     is_available = torch.backends.mps.is_available
+    #is_available = torch.cuda.is_available # for cuda
