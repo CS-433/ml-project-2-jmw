@@ -10,3 +10,10 @@ This software is divided in 3 main components:
 You can reproduce our best model performance (for the pretrained resnet) with weights saved in `Models/Saves`. Non-standard used libraries and their versions are listed in `requirements.txt`.
 
 To run the code, we recommend you first start by modifying the `Config.py` file, where you can specify the path of your training images, and so on to fit your setup. Also get confortable with conveniance methods of `Tools.py` such as `plot_model_prediction_on_original_image` with the `create_csv_from_predictions.ipynb` notebook.
+
+**CSV Files**
+All the CSV files are located in the CSVs folder.
+- Combined.csv: Contains the image names along with their keypoints (used for training).
+- combined_distance.csv: Contains the real distance of the images from the Combined.csv file.
+- KPD_confidence_predictions.csv: Contains the image names along with their predicted keypoints (produced by the model).
+- KPD_confidence_predictions_distance.csv: Contains the real distance of the images from the KPD_confidence_predictions.csv file.
