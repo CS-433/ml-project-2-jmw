@@ -37,14 +37,15 @@ def process_csv_and_add_real_distance(input_csv_path, folder_path, output_image_
 
         for row_index, row in enumerate(reader, start=1):
             try:
-                filename = row['Image Name']
-                x1 = int(row['x1'])
-                y1 = int(row['y1'])
-                x2 = int(row['x2'])
-                y2 = int(row['y2'])
-                real_distance = row['real_distance']
+                filename = row[0]
+                x1 = float(row[1])
+                y1 = float(row[2]) 
+                x2 = float(row[3]) 
+                y2 = float(row[4]) 
                 point1 = (int(x1), int(y1))
                 point2 = (int(x2), int(y2))
+                error_estimation = row[5]
+                real_distance = float(row[6])
                 full_image_path = os.path.join(folder_path, filename)
 
                 gray_image, color_image = load_image(full_image_path)
@@ -96,9 +97,9 @@ def process_csv_and_add_real_distance(input_csv_path, folder_path, output_image_
 
 
 if __name__ == "__main__":
-    input_csv_path = "CSVs/massi_annotate.csv"  # Chemin du fichier CSV d'entrée
-    folder_path = "/Users/massirashidi/original"  # Dossier contenant les images originales
-    output_image_folder = "/Users/massirashidi/original/annotated_images"  # Dossier de sortie des images annotées
+    input_csv_path = "CSVs/test.csv"  # Chemin du fichier CSV d'entrée
+    folder_path = "/Users/massirashidi/without_background"  # Dossier contenant les images originales
+    output_image_folder = "/Users/massirashidi/Library/Mobile Documents/com~apple~CloudDocs/CS/machine_learning/ml-project-2-jmw/CSVs/images_predict"  # Dossier de sortie des images annotées
 
     process_csv_and_add_real_distance(input_csv_path, folder_path, output_image_folder)
     print(f"[INFO] Annotated images successfully saved in {output_image_folder}")

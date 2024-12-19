@@ -26,7 +26,11 @@ def process_csv_and_add_real_distance(input_path, output_path, folder_path):
         # Process each row and add the 'real_distance' value
         for row in reader:
             try:
-                filename, x1, y1, x2, y2 = row
+                filename = row[0]
+                x1 = float(row[1])
+                y1 = float(row[2]) 
+                x2 = float(row[3]) 
+                y2 = float(row[4]) 
                 point1 = (int(x1), int(y1))
                 point2 = (int(x2), int(y2))
                 full_image_path = os.path.join(folder_path, filename)
@@ -54,10 +58,10 @@ def process_csv_and_add_real_distance(input_path, output_path, folder_path):
 
 
 if __name__ == "__main__":
-    input_csv_path = "CSVs/massi.csv"  # Path to your input CSV file
+    input_csv_path = "CSVs/KPD_confidence_predictions.csv"  # Path to your input CSV file
     output_csv_path = "CSVs/massi_annotate.csv"  # Path for the output CSV
     folder_path = (
-        "/Users/massirashidi/original"  # Path to the folder containing the images
+        "/Users/massirashidi/without_background"  # Path to the folder containing the images
     )
 
     process_csv_and_add_real_distance(input_csv_path, output_csv_path, folder_path)
