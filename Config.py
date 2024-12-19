@@ -4,12 +4,13 @@ import torch
 Define the software configuration. 
 """
 
-class Config:
 
+class Config:
     """
     Images will be transformed into this shape (pixel height, pixel width) before being fed to the model.
     We recommend (80, 120). More pixels can allow the model to become more precise but it will require more data.
     """
+
     input_image_shape_basic_model = (80, 160)
 
     """
@@ -42,5 +43,5 @@ class Config:
     Do not bother if you are using cpu
     """
     device = "mps"
-    #we could eventualy just use Config.device everywhere
+    # we could eventualy just use Config.device everywhere
     is_available = torch.backends.mps.is_available

@@ -10,7 +10,9 @@ class ConfidenceModel(nn.Module):
         self.base_model = models.resnet18(pretrained=True)
 
         # Modify the input layer to accept the specified number of input channels
-        self.base_model.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.base_model.conv1 = nn.Conv2d(
+            input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
+        )
 
         """
         # Replace the fully connected layer to output the specified number of features
@@ -24,14 +26,11 @@ class ConfidenceModel(nn.Module):
             nn.Linear(num_features, 256),
             nn.ReLU(),
             nn.Dropout(0.3),
-            #nn.Linear(256, 128),
-            #nn.ReLU(),
-            #nn.Dropout(0.3),
-            nn.Linear(256, 1)
+            # nn.Linear(256, 128),
+            # nn.ReLU(),
+            # nn.Dropout(0.3),
+            nn.Linear(256, 1),
         )
 
     def forward(self, x):
         return self.base_model(x)
-
-
-
