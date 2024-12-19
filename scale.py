@@ -139,10 +139,11 @@ def give_length_scale(image_path, point1, point2):
 
 
 if __name__ == "__main__":
-    image_path = "/Users/massirashidi/original/08costa-1723_p_1.jpg"
-    point1 = (100, 200)
-    point2 = (300, 400)
+    #image_path = "/Users/massirashidi/original/08costa-1723_p_1.jpg"
+    image_path = "/Users/massirashidi/Library/Mobile Documents/com~apple~CloudDocs/CS/machine_learning/ml-project-2-jmw/jtlc000008642_p_1.jpg"
+    point1 = (415, 355)
+    point2 = (975, 415)
 
-    real_distance = give_length_scale(image_path, point1, point2)
+    real_distance = give_length_scale(image_path, point1, point2, print_image=True)
 
     print(f"The real-world distance between the two points is: {real_distance} mm.")
